@@ -1,4 +1,3 @@
-"""layer3_network_code.py based on linuxrouter.py in mininet examples"""
 from mininet.topo import Topo
 from mininet.net import Mininet
 from mininet.node import Node
@@ -6,30 +5,24 @@ from mininet.log import setLogLevel, info
 from mininet.cli import CLI
 
 
-class LinuxRouter( Node ):
+class LinuxRouter(Node):
   """A Node with IP forwarding enabled."""
+  def config(self, **params):
+    super(LinuxRouter, self).config(**params)
+    self.cmd('sysctl -w net.ipv4.ip_forward=1')
 
-  # pylint: disable=arguments-differ
-  def config( self, **params ):
-    super( LinuxRouter, self).config( **params )
-    # Enable forwarding on the router
-    self.cmd( 'sysctl self.ipv4.ip_forward=1' )
-
-  def terminate( self ):
-    self.cmd( 'sysctl self.ipv4.ip_forward=0' )
-    super( LinuxRouter, self ).terminate()
-  
+  def terminate(self):
+    self.cmd('sysctl -w net.ipv4.ip_forward=0')
+    super(LinuxRouter, self).terminate()
 
 
-class NetworkTopo( Topo ):
+class NetworkTopo(Topo):
   """"A LinuxRouter connecting three IP subnets.
   Args:
       Topo (Mininet.Topo): A Mininet Topography
   """
-  # pylint: disable=arguments-differ
-  def build( self, **_opts ):
+  def build(self, **_opts):
     """Populate topology with routers, LANs, Switches, and Links."""
-    
     info('*** Adding routers\n')
     rA = self.addHost('rA', cls=LinuxRouter, ip='20.10.172.129/26')
     rB = self.addHost('rB', cls=LinuxRouter, ip='20.10.172.1/25')
@@ -68,14 +61,54 @@ class NetworkTopo( Topo ):
     self.addLink(rB, rC, intfName1='rB-eth2', intfName2='rC-eth1')
     self.addLink(rC, rA, intfName1='rC-eth2', intfName2='rA-eth2')
 
+
+def add_router_routes(net):
+  """Add all router's routes.
+  Args:
+      net (Mininet): Minenet network
+  """
+  info('*** Adding static routes to routers\n')
+
+  net["rA"].cmd("ip route add 20.10.172.0/25 via 20.10.100.2")
+  net["rA"].cmd("ip route add 20.10.172.192/27 via 20.10.100.6")
+
+  net["rB"].cmd("ip route add 20.10.172.128/26 via 20.10.100.1")
+  net["rB"].cmd("ip route add 20.10.172.192/27 via 20.10.100.3")
+
+  net["rC"].cmd("ip route add 20.10.172.0/25 via 20.10.100.5")
+  net["rC"].cmd("ip route add 20.10.172.128/26 via 20.10.100.4")
+
+
+def add_host_routes(net):
+  """Add all host's routers.
+
+  Args:
+      net (Minenet): Mininet network
+  """
+  info('*** Adding static routes to hosts\n')
+
+  # hA1, hA2
+  for h in ['hA1', 'hA2']:
+    net[h].cmd("ip route add 20.10.172.0/25 via 20.10.172.129")
+    net[h].cmd("ip route add 20.10.172.192/27 via 20.10.172.129")
+  # hB1, hB2
+  for h in ['hB1', 'hB2']:
+    net[h].cmd("ip route add 20.10.172.128/26 via 20.10.172.1")
+    net[h].cmd("ip route add 20.10.172.192/27 via 20.10.172.1")
+  # hC1, hC2
+  for h in ['hC1', 'hC2']:
+    net[h].cmd("ip route add 20.10.172.128/26 via 20.10.172.193")
+    net[h].cmd("ip route add 20.10.172.0/25 via 20.10.172.193")
+
+
 def run():
-  "Test linux router"
+  """Test linux router"""
   topo = NetworkTopo()
-  net = Mininet( topo=topo, waitConnected=True )
-  
+  net = Mininet(topo=topo, waitConnected=True)
+
   info('*** Starting Network\n')
   net.start()
-  
+
   info('*** Assigning IPs\n')
   net["rA"].setIP('20.10.100.1/24', intf='rA-eth1')
   net["rA"].setIP('20.10.100.4/24', intf='rA-eth2')
@@ -85,24 +118,29 @@ def run():
 
   net["rC"].setIP('20.10.100.3/24', intf='rC-eth1')
   net["rC"].setIP('20.10.100.6/24', intf='rC-eth2')
-  
+
   # Testing connections between hosts in a lan
-  print("\n--- Testing LAN A ---")
-  net.ping([net["hA1"], net["hA2"]])
+  print("Pinging LAN A")
+  net.ping([net['hA1'], net['hA2']])
+  print("Pinging LAN B")
+  net.ping([net['hB1'], net['hB2']])
+  print("Pinging LAN C")
+  net.ping([net['hC1'], net['hC2']])
 
-  print("\n--- Testing LAN B ---")
-  net.ping([net["hB1"], net["hB2"]])
+  # Static routing
+  add_router_routes(net)
+  add_host_routes(net)
 
-  print("\n--- Testing LAN C ---")
-  net.ping([net["hC1"], net["hC2"]])
+  print("Testing full connectivity")
+  net.pingAll()
 
-  info('*** Opening Mininet CLI\n')
-  
-  CLI( net )
+  print("Traceroute from hA1 to hC1")
+  print(net['hA1'].cmd("tracepath 20.10.172.194"))
+
+  CLI(net)
   net.stop()
 
 
 if __name__ == '__main__':
-  """Sets logs to 'info' and executes the network code"""
-  setLogLevel( 'info' )
+  setLogLevel('info')
   run()

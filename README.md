@@ -99,3 +99,5 @@ The Xs indicate that it was unable to ping.
 We see that the hosts are unable to ping outside their LAN and routers are only able to talk to their 2 hosts.
 
 **Output after Task 3:**
+
+Note that we will use the command tracepath rather than traceroute
