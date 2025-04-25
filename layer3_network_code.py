@@ -65,7 +65,7 @@ class NetworkTopo(Topo):
 def add_router_routes(net):
   """Add all router's routes.
   Args:
-      net (Mininet): Minenet network
+      net (Mininet): Mininet network
   """
   info('*** Adding static routes to routers\n')
 
@@ -81,9 +81,8 @@ def add_router_routes(net):
 
 def add_host_routes(net):
   """Add all host's routers.
-
   Args:
-      net (Minenet): Mininet network
+      net (Mininet): Mininet network
   """
   info('*** Adding static routes to hosts\n')
 
@@ -127,6 +126,9 @@ def run():
   print("Pinging LAN C")
   net.ping([net['hC1'], net['hC2']])
 
+  print("Task 2: Testing Connectivity before Inter-connectivity ")
+  net.pingAll()
+
   # Static routing
   add_router_routes(net)
   add_host_routes(net)
@@ -139,7 +141,6 @@ def run():
 
   CLI(net)
   net.stop()
-
 
 if __name__ == '__main__':
   setLogLevel('info')
